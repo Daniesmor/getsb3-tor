@@ -1,3 +1,14 @@
+const axios = require('axios');
+const SocksProxyAgent = require('axios-socks5-agent');
+
+const { SocksProxyAgent } = require('axios-socks5-agent');
+
+const agent = new SocksProxyAgent({
+    protocol: 'socks5',
+    host: 'localhost',
+    port: 9050
+});
+
 const ASSET_SERVER = 'https://cdn.assets.scratch.mit.edu/';
 const PROJECT_SERVER_SB2 = 'https://cdn.projects.scratch.mit.edu/';
 const PROJECT_SERVER_SB3 = 'https://projects.scratch.mit.edu/';
@@ -8,27 +19,33 @@ import ScratchStorage from 'scratch-storage';
 const collecteyData = {assets: {}};
     
 
-function getProjectUrlSb2(asset) {
+async function getProjectUrlSb2(asset) {
     const assetIdParts = asset.assetId.split('.');
     const assetUrlParts = [PROJECT_SERVER_SB2, 'internalapi/project/', assetIdParts[0], '/get/'];
     if (assetIdParts[1]) {
         assetUrlParts.push(assetIdParts[1]);
     }
-    return collecteyData.projectJSON = assetUrlParts.join('');
+    const url = assetUrlParts.join('');
+    const response = await axios.get(url, { httpAgent: agent, httpsAgent: agent });
+    collecteyData.projectJSON = response.data;
+    return response.data;
 };
 
 
-function getProjectUrlSb3(asset) {
+async function getProjectUrlSb3(asset) {
     const assetIdParts = asset.assetId.split('.');
     const assetUrlParts = [PROJECT_SERVER_SB3, assetIdParts[0], '/get/'];
     if (assetIdParts[1]) {
         assetUrlParts.push(assetIdParts[1]);
     }
-    return collecteyData.projectJSON = assetUrlParts.join('');
+    const url = assetUrlParts.join('');
+    const response = await axios.get(url, { httpAgent: agent, httpsAgent: agent });
+    collecteyData.projectJSON = response.data;
+    return response.data;
 };
     
 
-function getAssetUrl(asset) {
+async function getAssetUrl(asset) {
     const assetUrlParts = [
         ASSET_SERVER,
         'internalapi/asset/',
@@ -37,7 +54,10 @@ function getAssetUrl(asset) {
         asset.dataFormat,
         '/get/'
     ];
-    return collecteyData.assets[asset.assetId] = assetUrlParts.join('');
+    const url = assetUrlParts.join('');
+    const response = await axios.get(url, { httpAgent: agent, httpsAgent: agent });
+    collecteyData.assets[asset.assetId] = response.data;
+    return response.data;
 };
     
 
@@ -55,8 +75,7 @@ function downloadJsonProject(projectId) {
 }
 
 
-function getJsonProject(projectId) {
-    
+async function getJsonProject(projectId) {
     const vm = new VirtualMachine();
     const storage = new ScratchStorage();
 
@@ -65,25 +84,19 @@ function getJsonProject(projectId) {
     storage.addWebStore([AssetType.ImageVector, AssetType.ImageBitmap, AssetType.Sound], getAssetUrl);
     vm.attachStorage(storage);
 
-    return storage.load(storage.AssetType.Project, projectId)
-        .then(projectAsset => {
-            return vm.loadProject(projectAsset.data);
-        })
-        .then(() => {
-            return vm.toJSON();
-        })
-        .catch((err) => {
-            storage.addWebStore([AssetType.Project], getProjectUrlSb3);
-            storage.addWebStore([AssetType.ImageVector, AssetType.ImageBitmap, AssetType.Sound], getAssetUrl);
-            vm.attachStorage(storage);
-            return storage.load(storage.AssetType.Project, projectId)
-            .then(projectAsset => {
-                return vm.loadProject(projectAsset.data);
-            })
-            .then(() => {
-                return vm.toJSON();;
-            })
-    })
+    try {
+        const projectAsset = await storage.load(storage.AssetType.Project, projectId);
+        await vm.loadProject(projectAsset.data);
+        return vm.toJSON();
+    } catch (err) {
+        storage.addWebStore([AssetType.Project], getProjectUrlSb3);
+        storage.addWebStore([AssetType.ImageVector, AssetType.ImageBitmap, AssetType.Sound], getAssetUrl);
+        vm.attachStorage(storage);
+
+        const projectAsset = await storage.load(storage.AssetType.Project, projectId);
+        await vm.loadProject(projectAsset.data);
+        return vm.toJSON();
+    }
 }
 
 module.exports = {getJsonProject};
