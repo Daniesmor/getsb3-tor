@@ -8,7 +8,7 @@ RUN apk add --no-cache git openssh tor
 RUN echo "SocksPort 0.0.0.0:9050" >> /etc/tor/torrc
 
 WORKDIR /data
-RUN git clone https://github.com/cdchushig/getsb3.git /data/app
+RUN git clone https://github.com/Daniesmor/getsb3-tor /data/app
 WORKDIR /data/app
 
 RUN npm install && npm install axios axios-socks5-agent && npm run build

@@ -1,8 +1,6 @@
 const axios = require('axios');
 const SocksProxyAgent = require('axios-socks5-agent');
 
-const { SocksProxyAgent } = require('axios-socks5-agent');
-
 const agent = new SocksProxyAgent({
     protocol: 'socks5',
     host: 'localhost',
